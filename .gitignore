@@ -21,7 +21,8 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
-*.cabal
 .DS_Store
 .idea/
 *.dump-hi
+*.lock
+*.iml
