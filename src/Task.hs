@@ -16,11 +16,14 @@ module Task
     shiftDataL,
     readData,
     writeData,
+    readCommand,
     executeCommand,
     evaluateProgram,
     executeProgram,
   )
 where
+
+import Data.Char
 
 --   ____  _____   _       _                           _
 --  | __ )|  ___| (_)_ __ | |_ ___ _ __ _ __  _ __ ___| |_ ___ _ __
@@ -63,7 +66,25 @@ data Tape a
         tapeValue :: a,
         rightTape :: [a]
       }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show a => Show (Tape a) where
+  show (Tape l c right) = show (reverse (take 5 l)) <> " " <> show c <> " " <> show (take 5 right)
+
+-- | Creates a tape from a list.
+--
+-- Note that the tape will be empty to the left.
+--
+-- >>> initializeTape [1, 5, 8, ...]
+--
+--   ◀──┬─────┬─────┬─────┬─────┬──▶
+--  ... │     │  1  │  5  │  8  │ ...
+--   ◀──┴─────┴─────┴─────┴─────┴──▶
+--               ▲
+--               │
+initializeTape :: [a] -> Maybe (Tape a)
+initializeTape [] = Nothing
+initializeTape (a : aa) = Just (Tape [] a aa)
 
 -- | This is represents the operation of moving the tape pointer to the left.
 shiftTapeL :: Tape a -> Maybe (Tape a)
@@ -102,6 +123,11 @@ instance Functor (ErrorState e s) where
 
 instance Applicative (ErrorState e s) where
   pure = error "TODO: Applicative (ErrorState e s) - pure"
+
+  -- NOTE: State from the left hand side should be passed to the right hand
+  -- side.
+  -- Conversely the state from the right hand side should be the state of the
+  -- output.
   (<*>) = error "TODO: Applicative (ErrorState e s) - (<*>)"
 
 instance Monad (ErrorState e s) where
@@ -120,7 +146,7 @@ throwError :: e -> ErrorState e s a
 throwError = error "TODO: throwError"
 
 -- | This operations allows you to encapsulate the process of reading the state,
--- modifying it and writing it into the monad into a single operation.
+-- modifying it and writing it into the monad in a single operation.
 --
 -- It should modify the current state with the given function.
 modify :: (s -> s) -> ErrorState e s ()
@@ -160,6 +186,10 @@ type BFMonad a = ErrorState BFError BFState a
 
 -- | This operation should consume one 'Char' from the input stream
 -- and return it.
+--
+-- Should throw 'NotEnoughInput' error when the input stream is empty.
+--
+-- HINT: From now on it would be easier to use `do`-syntax.
 readInput :: BFMonad Char
 readInput = error "TODO: readInput"
 
@@ -217,6 +247,9 @@ readData = error "TODO: readData"
 writeData :: Char -> BFMonad ()
 writeData = error "TODO: writeData"
 
+readCommand :: BFMonad BFCommand
+readCommand = error "TODO: readCommand"
+
 --   _____ _          _     _                        _
 --  |_   _| |_  ___  (_)_ _| |_ ___ _ _ _ __ _ _ ___| |_ ___ _ _
 --    | | | ' \/ -_) | | ' \  _/ -_) '_| '_ \ '_/ -_)  _/ -_) '_|
@@ -229,8 +262,6 @@ writeData = error "TODO: writeData"
 --
 -- Please have a look at this commands table:
 --   https://en.wikipedia.org/wiki/Brainfuck#Commands
---
--- To increment and decrement a `Char` you can use `succ` and `pred`.
 --
 -- Note: non-command characters are ignored.
 executeCommand :: BFCommand -> BFMonad CommandResult
@@ -266,5 +297,9 @@ emptyTape = Tape (repeat zeroChar) zeroChar (repeat zeroChar)
 -- You will need to construct the initial state for the monad, evaluate the
 -- program from the initial state, and convert the resulting value to the
 -- appropriate type.
+--
+-- You can use these two functions to convert between 'Char' and 'Int':
+--   ord :: Char -> Int
+--   chr :: Int -> Char
 executeProgram :: [BFCommand] -> String -> Maybe String
 executeProgram = error "TODO: executeProgram"
