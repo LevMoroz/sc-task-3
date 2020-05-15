@@ -1,5 +1,11 @@
 module Task
-  ( ErrorState (..),
+  ( Tape (..),
+    touchTape,
+    initializeTape,
+    shiftTapeL,
+    shiftTapeR,
+    ErrorState (..),
+    executeErrorState,
     get,
     put,
     throwError,
@@ -9,14 +15,11 @@ module Task
     BFMonad,
     readInput,
     writeOutput,
-    CommandResult (..),
-    shiftCommandR,
-    shiftCommandL,
     shiftDataR,
     shiftDataL,
     readData,
     writeData,
-    readCommand,
+    BFCommand (..),
     executeCommand,
     evaluateProgram,
     executeProgram,
@@ -24,6 +27,7 @@ module Task
 where
 
 import Data.Char
+import Data.List
 
 --   ____  _____   _       _                           _
 --  | __ )|  ___| (_)_ __ | |_ ___ _ __ _ __  _ __ ___| |_ ___ _ __
@@ -68,8 +72,19 @@ data Tape a
       }
   deriving (Eq, Ord)
 
+-- We need a special instance to handle infinite tapes. The derived
+-- implementation would go into an infinite loop.
 instance Show a => Show (Tape a) where
-  show (Tape l c right) = show (reverse (take 5 l)) <> " " <> show c <> " " <> show (take 5 right)
+  show (Tape l c right) =
+    "["
+      <> tapeify (reverse (take 5 l))
+      <> " { "
+      <> show c
+      <> " } "
+      <> tapeify (take 5 right)
+      <> "]"
+    where
+      tapeify = mconcat . intersperse " " . fmap show
 
 -- | Creates a tape from a list.
 --
@@ -77,11 +92,11 @@ instance Show a => Show (Tape a) where
 --
 -- >>> initializeTape [1, 5, 8, ...]
 --
---   ◀──┬─────┬─────┬─────┬─────┬──▶
---  ... │     │  1  │  5  │  8  │ ...
---   ◀──┴─────┴─────┴─────┴─────┴──▶
---               ▲
---               │
+--  ┌─────┬─────┬─────┬──▶
+--  │  1  │  5  │  8  │ ...
+--  └─────┴─────┴─────┴──▶
+--     ▲
+--     │
 initializeTape :: [a] -> Maybe (Tape a)
 initializeTape [] = Nothing
 initializeTape (a : aa) = Just (Tape [] a aa)
@@ -118,20 +133,21 @@ data ErrorState e s a
   = ErrorState
       {runErrorState :: s -> Either e (a, s)}
 
+-- | Executes the state monad and returns the result without returning the
+-- final state.
+executeErrorState :: s -> ErrorState e s a -> Either e a
+executeErrorState = error "TODO: executeErrorState"
+
 instance Functor (ErrorState e s) where
-  fmap = error "TODO: Functor (ErrorState e s) - fmap"
+  fmap = error "TODO: fmap"
 
 instance Applicative (ErrorState e s) where
-  pure = error "TODO: Applicative (ErrorState e s) - pure"
-
-  -- NOTE: State from the left hand side should be passed to the right hand
-  -- side.
-  -- Conversely the state from the right hand side should be the state of the
-  -- output.
-  (<*>) = error "TODO: Applicative (ErrorState e s) - (<*>)"
+  pure = error "TODO: pure"
+  (<*>) = error "TODO: <*>"
 
 instance Monad (ErrorState e s) where
-  (>>=) = error "TODO: Monad (ErrorState e s) - >>="
+  (>>=) = error "TODO: >>="
+  return = error "TODO: return"
 
 -- | This operation returns the state that the monad currently contains.
 get :: ErrorState e s s
@@ -158,97 +174,67 @@ modify = error "TODO: modify"
 --  |___/_|   |_|_|_\___/_||_\__,_\__,_|
 
 -- In this section we will implement the specific state we will be using and
--- some operations that operate on it within the state monad.
-
-type BFCommand = Char
+-- some operations that work within it.
 
 -- | This represents the state of our BF interpreter.
 data BFState
   = BFState
-      { -- | The command tape. It contains the a
-        -- pointer to the command being executed.
-        bfCommandTape :: Tape BFCommand,
-        -- | The data tape.
-        bfDataTape :: Tape Char,
+      { -- | The data tape.
+        bfDataTape :: Tape Int,
         -- | The input stream of the BF interpreter.
-        bfInput :: [Char],
+        bfInput :: [Int],
         -- | The output stream of the BF interpreter.
-        bfOutput :: [Char]
+        bfOutput :: [Int]
       }
   deriving (Eq, Show)
 
+-- | This represents the errors that can occur while executing a BF program.
 data BFError
-  = NotEnoughInput
-  | DataTapeExhausted
+  = -- | Tried reading input, but the input stream was empty.
+    NotEnoughInput
+  | -- | Tried going past the end of the data tape (if it was finite).
+    DataTapeExhausted
   deriving (Show, Eq)
 
+-- | The monad in which we will interpreting the BF commands.
 type BFMonad a = ErrorState BFError BFState a
 
--- | This operation should consume one 'Char' from the input stream
+-- | This operation should consume one element from the input stream
 -- and return it.
 --
--- Should throw 'NotEnoughInput' error when the input stream is empty.
---
--- HINT: From now on it would be easier to use `do`-syntax.
-readInput :: BFMonad Char
+-- If there is not enough input, it should throw 'NotEnoughInput' error.
+readInput :: BFMonad Int
 readInput = error "TODO: readInput"
 
--- | This operation should write one 'Char' to the output stream.
--- This should just prepend the character to the start of the string using the
+-- | This operation should write the element at the data tape head to the
+-- output stream.
+--
+-- It should just prepend the character to the start of the string using the
 -- `:` (cons) operator.
-writeOutput :: Char -> BFMonad ()
+--
+-- This will make writing O(1).
+writeOutput :: Int -> BFMonad ()
 writeOutput = error "TODO: writeOutput"
 
-data CommandResult
-  = ExecutionTerminated
-  | ExecutionNotTerminated
-  deriving (Eq, Show)
-
--- | This operations shifts the command pointer to the right.
---
--- NOTE: The execution of the program ends successfully if the command pointer
---   moves past the end of the command tape.
---
---   For this reason you should not throw an error, and instead return whether the
---   execution of the program should be terminated.
-shiftCommandR :: BFMonad CommandResult
-shiftCommandR = error "TODO: shiftCommandR"
-
--- | This operations shifts the command pointer to the left.
---
--- NOTE: The execution of the program ends successfully if the command pointer
---   moves past the end of the command tape.
---
---   For this reason you should not throw an error, and instead return whether the
---   execution of the program should be terminated.
-shiftCommandL :: BFMonad CommandResult
-shiftCommandL = error "TODO: shiftCommandL"
-
--- | This operations shifts the data pointer to the right.
+-- | This operation shifts the data pointer to the right.
 --
 -- NOTE: if the tape has ended, you should throw the 'DataTapeExhausted' error.
 shiftDataR :: BFMonad ()
 shiftDataR = error "TODO: shiftDataR"
 
--- | This operations shifts the data pointer to the left.
+-- | This operation shifts the data pointer to the left.
 --
 -- NOTE: if the tape has ended, you should throw the 'DataTapeExhausted' error.
 shiftDataL :: BFMonad ()
 shiftDataL = error "TODO: shiftDataL"
 
--- | This operation reads the 'Char' at the data pointer.
---
--- NOTE: if the input has been exhausted, you should throw the 'NotEnoughInput'
---   error.
-readData :: BFMonad Char
+-- | This operation reads the element at the data pointer.
+readData :: BFMonad Int
 readData = error "TODO: readData"
 
--- | This operation writes the 'Char' to the current data pointer.
-writeData :: Char -> BFMonad ()
+-- | This operation writes the element to the current data pointer.
+writeData :: Int -> BFMonad ()
 writeData = error "TODO: writeData"
-
-readCommand :: BFMonad BFCommand
-readCommand = error "TODO: readCommand"
 
 --   _____ _          _     _                        _
 --  |_   _| |_  ___  (_)_ _| |_ ___ _ _ _ __ _ _ ___| |_ ___ _ _
@@ -256,32 +242,75 @@ readCommand = error "TODO: readCommand"
 --    |_| |_||_\___| |_|_||_\__\___|_| | .__/_| \___|\__\___|_|
 --                                     |_|
 
--- | Executes one BF command.
---
--- The command should be read from the function argument, not the monad state.
+-- | The parsed commands from the BF language.
 --
 -- Please have a look at this commands table:
 --   https://en.wikipedia.org/wiki/Brainfuck#Commands
+data BFCommand
+  = -- | 'Loop x' is equivalent to `[x]` in BF. It is essentially a while loop.
+    Loop [BFCommand]
+  | -- | The `>` command.
+    ShiftRight
+  | -- | The `<` command.
+    ShiftLeft
+  | -- | The `+` command.
+    Increment
+  | -- | The `-` command.
+    Decrement
+  | -- | The `,` command.
+    ReadInput
+  | -- | The `.` command.
+    WriteOutput
+  deriving (Eq, Show)
+
+type BFProgram = [BFCommand]
+
+prependMaybe :: Maybe a -> [a] -> [a]
+prependMaybe Nothing aa = aa
+prependMaybe (Just x) xx = x : xx
+
+-- | This is just a helper function.
+parseProgram' :: String -> (BFProgram, String)
+parseProgram' "" = ([], "")
+parseProgram' ('[' : rest) = (Loop innerProgram : outerProgram, s')
+  where
+    (innerProgram, s) = parseProgram' rest
+    (outerProgram, s') = parseProgram' s
+parseProgram' (']' : rest) = ([], rest)
+parseProgram' (x : rest) = (command `prependMaybe` restProgram, s)
+  where
+    (restProgram, s) = parseProgram' rest
+    command = case x of
+      '>' -> pure ShiftRight
+      '<' -> pure ShiftLeft
+      '+' -> pure Increment
+      '-' -> pure Decrement
+      '.' -> pure WriteOutput
+      ',' -> pure ReadInput
+      _ -> Nothing
+
+-- | This function parses the given string and returns a sequence of BF
+-- commands.
+parseProgram :: String -> BFProgram
+parseProgram = fst . parseProgram'
+
+-- | Executes one BF command.
 --
--- Note: non-command characters are ignored.
-executeCommand :: BFCommand -> BFMonad CommandResult
+-- NOTE: You will probably need to call 'evaluateProgram' somewhere in
+-- this function.
+executeCommand :: BFCommand -> BFMonad ()
 executeCommand = error "TODO: executeCommand"
 
--- | This function should evaluate the whole program starting from the current
--- command pointer.
---
--- This will probably be recursive.
-evaluateProgram :: BFMonad ()
+-- | This function should evaluate the whole program.
+evaluateProgram :: BFProgram -> BFMonad ()
 evaluateProgram = error "TODO: evaluateProgram"
-
--- | This constant just contains the "zero" 'Char' value for your convenience.
-zeroChar :: Char
-zeroChar = toEnum 0
 
 -- | This constant just contains an infinite empty tape. You can use this as
 -- the initial data tape.
-emptyTape :: Tape Char
-emptyTape = Tape (repeat zeroChar) zeroChar (repeat zeroChar)
+--
+-- NOTE: It is infinite.
+emptyTape :: Tape Int
+emptyTape = Tape (repeat 0) 0 (repeat 0)
 
 -- | In this function you should bring everything together and execute the given
 -- list of commands.
@@ -292,14 +321,15 @@ emptyTape = Tape (repeat zeroChar) zeroChar (repeat zeroChar)
 -- produces.
 --
 -- NOTE: since the output stream of the program is written backwards, you
--- will need to reverse the output stream. (You can use the `reverse` function.)
+-- will need to reverse the output stream. (You can use the 'reverse' function.)
 --
 -- You will need to construct the initial state for the monad, evaluate the
 -- program from the initial state, and convert the resulting value to the
 -- appropriate type.
---
--- You can use these two functions to convert between 'Char' and 'Int':
---   ord :: Char -> Int
---   chr :: Int -> Char
-executeProgram :: [BFCommand] -> String -> Maybe String
-executeProgram = error "TODO: executeProgram"
+executeProgram ::
+  -- | The text of the BF program.
+  String ->
+  -- | The input to pass into the program.
+  String ->
+  Maybe String
+executeProgram = error "TODO: evaluateProgram"
