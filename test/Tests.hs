@@ -183,8 +183,8 @@ tests = parallel $ do
               }
       specify "non-empty" $ do
         let testReadInput :: NonEmptyList Int -> Property
-            testReadInput (NonEmpty l@(x : _)) =
-              executeErrorState (state l) readInput === Right x
+            testReadInput (NonEmpty l@(x : xs)) =
+              ((fst &&& bfInput . snd) <$> runErrorState readInput (state l)) === Right (x, xs)
         property testReadInput
       specify "empty" $ do
         executeErrorState (state []) readInput
