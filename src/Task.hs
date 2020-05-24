@@ -206,10 +206,8 @@ type BFMonad a = ErrorState BFError BFState a
 readInput :: BFMonad Int
 readInput = error "TODO: readInput"
 
--- | This operation should write the element at the data tape head to the
--- output stream.
---
--- It should just prepend the character to the start of the string using the
+-- | This operation should write one element to the output stream.
+-- This should just prepend the character to the start of the string using the
 -- `:` (cons) operator.
 --
 -- This will make writing O(1).
