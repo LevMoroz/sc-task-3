@@ -15,5 +15,6 @@ tests:
     dependencies:
     - tasty
     - tasty-hspec
+    - hspec
     - task
     - QuickCheck

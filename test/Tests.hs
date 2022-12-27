@@ -16,7 +16,7 @@ import Data.List
 import Data.Maybe
 import Task
 import Test.QuickCheck
-import Test.Tasty.Hspec
+import Test.Hspec
 
 tests :: Spec
 tests = parallel $ do

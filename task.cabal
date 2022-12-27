@@ -4,7 +4,7 @@ cabal-version: 2.2
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b333b848387f969ec61fee73c92ce1c2a37188f2004b99dda48743f84ccfca8a
+-- hash: ba479ad20ec471b3b53314ad5d901661b888b4664e6cd42d65d0fd6ff6be5b8d
 
 name:           task
 version:        0.1.0.0
@@ -38,6 +38,7 @@ test-suite task-tests
   build-depends:
       QuickCheck
     , base >=4.7 && <5
+    , hspec
     , task
     , tasty
     , tasty-hspec
