@@ -1,10 +1,10 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.35.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: debabc49523fe978dedb0aabe06763bcd345d42b2179a742ed297254159e7414
+-- hash: b333b848387f969ec61fee73c92ce1c2a37188f2004b99dda48743f84ccfca8a
 
 name:           task
 version:        0.1.0.0
@@ -17,6 +17,8 @@ library
       Task
   other-modules:
       Paths_task
+  autogen-modules:
+      Paths_task
   hs-source-dirs:
       src
   build-depends:
@@ -28,6 +30,8 @@ test-suite task-tests
   main-is: Main.hs
   other-modules:
       Tests
+      Paths_task
+  autogen-modules:
       Paths_task
   hs-source-dirs:
       test
