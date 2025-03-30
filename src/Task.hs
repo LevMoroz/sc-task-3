@@ -336,11 +336,40 @@ parseProgram = fst . parseProgram'
 -- NOTE: You will probably need to call 'evaluateProgram' somewhere in
 -- this function.
 executeCommand :: BFCommand -> BFMonad ()
-executeCommand = error "TODO: executeCommand"
+executeCommand c = do
+  case c of
+    ShiftRight -> shiftDataR
+    ShiftLeft -> shiftDataL
+    Increment -> do
+      x <- readData
+      writeData (x+1)
+    Decrement -> do
+      x <- readData
+      writeData (x-1)
+    ReadInput -> do 
+      x <- readInput
+      writeData x 
+    WriteOutput -> do
+      x <- readData
+      writeOutput x 
+    Loop cs -> do
+      x <- readData
+      if x == 0 
+        then do
+          s <- get
+          put s -- ???
+        else do
+          evaluateProgram cs
+          executeCommand c
 
 -- | This function should evaluate the whole program.
 evaluateProgram :: BFProgram -> BFMonad ()
-evaluateProgram = error "TODO: evaluateProgram"
+evaluateProgram [] = do
+  s <- get
+  put s
+evaluateProgram (c:cs) = do
+  executeCommand c
+  evaluateProgram cs
 
 -- | This constant just contains an infinite empty tape. You can use this as
 -- the initial data tape.
