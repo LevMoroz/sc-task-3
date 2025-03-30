@@ -136,37 +136,51 @@ data ErrorState e s a
 -- | Executes the state monad and returns the result without returning the
 -- final state.
 executeErrorState :: s -> ErrorState e s a -> Either e a
-executeErrorState = error "TODO: executeErrorState"
+executeErrorState n m = h (runErrorState m n)
+  where h (Left e) = Left e
+        h (Right (a, s)) = Right a
 
 instance Functor (ErrorState e s) where
-  fmap = error "TODO: fmap"
+  fmap f c = ErrorState $ \x -> h $ runErrorState c x 
+    where h (Left e) = Left e
+          h (Right (a, s)) = Right (f a, s)
 
 instance Applicative (ErrorState e s) where
-  pure = error "TODO: pure"
-  (<*>) = error "TODO: <*>"
+  pure a = ErrorState (\s -> Right (a, s))
+
+  (<*>) f l =
+    ErrorState $ \x -> h (runErrorState f x) (runErrorState l x)
+      where 
+        h (Left e) _ = Left e
+        h (Right (fi, sf)) (Left e) = Left e
+        h (Right (fi, sf)) (Right (a, s)) = Right (fi a, s)
 
 instance Monad (ErrorState e s) where
-  (>>=) = error "TODO: >>="
-  return = error "TODO: return"
+  (>>=) l f = ErrorState $ \x -> h (runErrorState l x)
+      where
+        h (Left e) = Left e 
+        h (Right (a, s)) = runErrorState (f a) s
+
+  return = pure
 
 -- | This operation returns the state that the monad currently contains.
 get :: ErrorState e s s
-get = error "TODO: get"
+get = ErrorState $ \s -> Right (s, s)
 
 -- | This operation sets the state in the monad to a new value.
 put :: s -> ErrorState e s ()
-put = error "TODO: put"
+put s = ErrorState $ \_ -> Right ((), s)
 
 -- | This operation throws an error in the monad.
 throwError :: e -> ErrorState e s a
-throwError = error "TODO: throwError"
+throwError e = ErrorState $ \_ -> Left e
 
 -- | This operations allows you to encapsulate the process of reading the state,
 -- modifying it and writing it into the monad in a single operation.
 --
 -- It should modify the current state with the given function.
 modify :: (s -> s) -> ErrorState e s ()
-modify = error "TODO: modify"
+modify f = ErrorState $ \s -> Right ((), f s)
 
 --   ___ ___                          _
 --  | _ ) __|  _ __  ___ _ _  __ _ __| |
@@ -204,7 +218,10 @@ type BFMonad a = ErrorState BFError BFState a
 --
 -- If there is not enough input, it should throw 'NotEnoughInput' error.
 readInput :: BFMonad Int
-readInput = error "TODO: readInput"
+readInput = ErrorState $ \s -> h s (bfInput s)
+  where
+    h s [] = Left NotEnoughInput
+    h s (i:is) = Right (i, BFState (bfDataTape s) is (bfOutput s))
 
 -- | This operation should write one element to the output stream.
 -- This should just prepend the character to the start of the string using the
@@ -212,23 +229,40 @@ readInput = error "TODO: readInput"
 --
 -- This will make writing O(1).
 writeOutput :: Int -> BFMonad ()
-writeOutput = error "TODO: writeOutput"
-
+writeOutput x = do 
+  s <- get
+  put $ s {bfOutput = x : (bfOutput s)} -- Должно работать так же, как и раньше)
+  
 -- | This operation shifts the data pointer to the right.
 --
 -- NOTE: if the tape has ended, you should throw the 'DataTapeExhausted' error.
 shiftDataR :: BFMonad ()
-shiftDataR = error "TODO: shiftDataR"
+shiftDataR = do
+  s <- get
+  case rightTape (bfDataTape s) of
+    [] -> throwError DataTapeExhausted
+    (a:as) -> do
+      let t = bfDataTape s
+      let t' = t {leftTape = tapeValue t : leftTape t, tapeValue = a, rightTape = as}
+      put $ s {bfDataTape = t'}
 
 -- | This operation shifts the data pointer to the left.
 --
 -- NOTE: if the tape has ended, you should throw the 'DataTapeExhausted' error.
 shiftDataL :: BFMonad ()
-shiftDataL = error "TODO: shiftDataL"
+shiftDataL = do
+  s <- get
+  case leftTape (bfDataTape s) of
+    [] -> throwError DataTapeExhausted
+    (a:as) -> do
+      let t = bfDataTape s
+      let t' = t {leftTape = as, tapeValue = a, rightTape = tapeValue t : rightTape t}
+      put $ s {bfDataTape = t'}
 
 -- | This operation reads the element at the data pointer.
 readData :: BFMonad Int
-readData = error "TODO: readData"
+readData = error "In progress..."
+  
 
 -- | This operation writes the element to the current data pointer.
 writeData :: Int -> BFMonad ()
