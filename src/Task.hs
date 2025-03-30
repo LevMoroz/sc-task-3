@@ -138,7 +138,7 @@ data ErrorState e s a
 executeErrorState :: s -> ErrorState e s a -> Either e a
 executeErrorState n m = h (runErrorState m n)
   where h (Left e) = Left e
-        h (Right (a, s)) = Right a
+        h (Right (a, _)) = Right a
 
 instance Functor (ErrorState e s) where
   fmap f c = ErrorState $ \x -> h $ runErrorState c x 
@@ -152,8 +152,8 @@ instance Applicative (ErrorState e s) where
     ErrorState $ \x -> h (runErrorState f x) (runErrorState l x)
       where 
         h (Left e) _ = Left e
-        h (Right (fi, sf)) (Left e) = Left e
-        h (Right (fi, sf)) (Right (a, s)) = Right (fi a, s)
+        h _ (Left e) = Left e
+        h (Right (fi, _)) (Right (a, s)) = Right (fi a, s)
 
 instance Monad (ErrorState e s) where
   (>>=) l f = ErrorState $ \x -> h (runErrorState l x)
@@ -220,7 +220,7 @@ type BFMonad a = ErrorState BFError BFState a
 readInput :: BFMonad Int
 readInput = ErrorState $ \s -> h s (bfInput s)
   where
-    h s [] = Left NotEnoughInput
+    h _ [] = Left NotEnoughInput
     h s (i:is) = Right (i, BFState (bfDataTape s) is (bfOutput s))
 
 -- | This operation should write one element to the output stream.
@@ -264,7 +264,7 @@ readData :: BFMonad Int
 readData = do
   s <- get
   let a = tapeValue $ bfDataTape s
-  ErrorState $ \x -> Right (a, s)
+  ErrorState $ \_ -> Right (a, s)
 
 -- | This operation writes the element to the current data pointer.
 writeData :: Int -> BFMonad ()
@@ -355,18 +355,14 @@ executeCommand c = do
     Loop cs -> do
       x <- readData
       if x == 0 
-        then do
-          s <- get
-          put s -- ???
+        then return ()
         else do
           evaluateProgram cs
           executeCommand c
 
 -- | This function should evaluate the whole program.
 evaluateProgram :: BFProgram -> BFMonad ()
-evaluateProgram [] = do
-  s <- get
-  put s
+evaluateProgram [] = return ()
 evaluateProgram (c:cs) = do
   executeCommand c
   evaluateProgram cs
@@ -392,10 +388,22 @@ emptyTape = Tape (repeat 0) 0 (repeat 0)
 -- You will need to construct the initial state for the monad, evaluate the
 -- program from the initial state, and convert the resulting value to the
 -- appropriate type.
+
+executeToFinalState :: s -> ErrorState e s a -> Maybe s
+executeToFinalState n m = h (runErrorState m n)
+  where h (Left _) = Nothing
+        h (Right (_, s)) = Just s
+
 executeProgram ::
   -- | The text of the BF program.
   String ->
   -- | The input to pass into the program.
   String ->
   Maybe String
-executeProgram = error "TODO: evaluateProgram"
+executeProgram p i = do 
+  let t = emptyTape
+  let s = BFState t (map ord i) []
+  let r = executeToFinalState s $ evaluateProgram (parseProgram p)
+  case r of
+    Nothing -> Nothing
+    Just o -> Just $ reverse (map chr (bfOutput o))
