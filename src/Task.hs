@@ -261,12 +261,17 @@ shiftDataL = do
 
 -- | This operation reads the element at the data pointer.
 readData :: BFMonad Int
-readData = error "In progress..."
-  
+readData = do
+  s <- get
+  let a = tapeValue $ bfDataTape s
+  ErrorState $ \x -> Right (a, s)
 
 -- | This operation writes the element to the current data pointer.
 writeData :: Int -> BFMonad ()
-writeData = error "TODO: writeData"
+writeData x = do
+  s <- get
+  let t = (bfDataTape s) {tapeValue = x}
+  put $ s {bfDataTape = t}
 
 --   _____ _          _     _                        _
 --  |_   _| |_  ___  (_)_ _| |_ ___ _ _ _ __ _ _ ___| |_ ___ _ _
